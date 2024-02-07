@@ -9,8 +9,11 @@ services:
     volumes:
       - ./DSL:/DSL
     networks:
-      - cronmanager
+      - bykstack
 
 networks:
-  cronmanager:
+  bykstack:
+    name: bykstack
     driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1400

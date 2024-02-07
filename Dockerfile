@@ -32,4 +32,6 @@ RUN chown -R cronmanager:cronmanager /app
 RUN chown -R cronmanager:cronmanager /DSL
 USER cronmanager
 
+EXPOSE 9010
+
 ENTRYPOINT ["java","-cp","app:app/lib/*","ee.buerokratt.cronmanager.CronManagerApplication"]
