@@ -1,0 +1,5 @@
+update_post:
+  trigger: "0 44 8 * * ?"
+  type: http
+  method: GET
+  url: https://ruuter.dev.buerokratt.ee/pub2/healthz

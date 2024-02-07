@@ -1,0 +1,19 @@
+version: '3.9'
+services:
+ bykcron:
+    container_name: bykcron
+    build:
+      context: .
+    ports:
+      - 9010:8080
+    volumes:
+      - ./DSL:/DSL
+    networks:
+      - bykstack
+
+networks:
+  bykstack:
+    name: bykstack
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1400
