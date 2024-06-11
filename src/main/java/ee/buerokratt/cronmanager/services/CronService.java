@@ -89,14 +89,15 @@ public class CronService {
             for (JobKey job : jobs) {
                 if (!dtos.containsKey(job.getGroup()))
                     dtos.put(job.getGroup(), new ArrayList<JobDTO>());
-                CronTrigger trigger = ((CronTrigger) scheduler.getTriggersOfJob(job).get(0));
-                dtos.get(job.getGroup()).add(new JobDTO(job.getName(),
-                        trigger.getCronExpression(),
-                        trigger.getPreviousFireTime()!= null ? trigger.getPreviousFireTime().getTime() : 0,
-                        trigger.getNextFireTime().getTime(),
-                        ""));
+                if(!scheduler.getTriggersOfJob(job).isEmpty()) {
+                    CronTrigger trigger = ((CronTrigger) scheduler.getTriggersOfJob(job).get(0));
+                    dtos.get(job.getGroup()).add(new JobDTO(job.getName(),
+                            trigger.getCronExpression(),
+                            trigger.getPreviousFireTime()!= null ? trigger.getPreviousFireTime().getTime() : 0,
+                            trigger.getNextFireTime().getTime(),
+                            ""));
+                }
             }
-
             return mapper.writeValueAsString(dtos);
         } catch (Exception e) {
             throw new RuntimeException(e);
