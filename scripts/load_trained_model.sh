@@ -1,7 +1,7 @@
 #!/bin/bash
-echo 'Start script...'
-
+script_name=`basename $0`
 pwd
+echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name started
 . constants.ini
 
 if [ -z "$versionNumber" ]; then
@@ -32,7 +32,10 @@ if [ "$load_status" != "204" ]; then
 fi
 
 add_deployed_model_body_dto='{"fileName":"'$filename'"}'
-curl -X POST -H "x-ruuter-skip-authentication: true" -H "Content-Type: application/json" -d "$add_deployed_model_body_dto" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-deployed"
+deployed_res=$(curl -X POST -H "x-ruuter-skip-authentication: true" -H "Content-Type: application/json" -d "$add_deployed_model_body_dto" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-deployed")
+echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $deployed_res
 
 shopt -s extglob 
 rm /data/!($filename)
+
+echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name finished
