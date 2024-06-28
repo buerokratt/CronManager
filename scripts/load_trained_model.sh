@@ -25,6 +25,7 @@ if [ "$copy_file_status" != "201" ]; then
     exit 1
 fi
 
+sleep 5
 load_status=$(curl -s -w "%{http_code}" -X PUT -H "Content-Type: application/json" -d '{"model_file":"/app/models/'$filename'"}' "$CHATBOT_BOT/model")
 if [ "$load_status" != "204" ]; then
     echo "error: failed to load trained model from RASA with status code $load_status"
