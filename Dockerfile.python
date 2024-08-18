@@ -37,6 +37,9 @@ RUN apt-get update && apt-get install -y \
 
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
 
+# Creating python virtual environment to download and store dependencies
+RUN python3.10 -m venv /app/python_virtual_env 
+
 ARG DEPENDENCY=/workspace/app/build/libs
 COPY --from=build ${DEPENDENCY}/BOOT-INF/lib /app/lib
 COPY --from=build ${DEPENDENCY}/META-INF /app/META-INF
