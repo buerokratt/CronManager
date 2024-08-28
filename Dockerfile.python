@@ -37,6 +37,8 @@ RUN apt-get update && apt-get install -y \
 
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
 
+RUN apt-get update && apt-get install -y jq
+
 # Creating python virtual environment to download and store dependencies
 RUN python3.10 -m venv /app/python_virtual_env 
 
