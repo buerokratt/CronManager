@@ -4,12 +4,6 @@ pwd
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name started
 . constants.ini
 
-if $test; then
-    echo 'run with test'
-else
-    echo 'run without test'
-fi
-
 # POST request to merge training yaml files
 train_yaml=$(curl -X POST -H "Content-Type: application/json" -d '{"file_path":"'$TRAINING_FILES_PATH'"}' "$TRAINING_DMAPPER/mergeYaml")
 
