@@ -36,6 +36,7 @@ if [ "$train_status" != "200" ]; then
     exit 1
 fi
 
+if $test; then
 # PUT request to load currently trained model in RASA
 load_status=$(curl -s -w "%{http_code}" -X PUT -H "Content-Type: application/json" -d '{"model_file":"/app/models/'$trained_model_filename'"}' "$TRAINING_RASA/model")
 if [ "$load_status" != "204" ]; then
@@ -78,6 +79,7 @@ if [ "$cross_validate_status" != "200" ]; then
     exit 1
 fi
 cross_validate_body="${cross_validate_response:: -3}"
+fi
 
 copy_file_body_dto='{"destinationFilePath":"'$trained_model_filename'","destinationStorageType":"S3","sourceFilePath":"'$trained_model_filename'","sourceStorageType":"FS"}'
 copy_file_response=$(curl -s -w "%{http_code}" -X POST -H "Content-Type: application/json" -d "$copy_file_body_dto" "$S3_FERRY_TRAIN/v1/files/copy")
@@ -89,7 +91,11 @@ if [ "$copy_file_status" != "201" ]; then
     exit 1
 fi
 
+if $test; then
 add_new_model_body_dto='{"fileName":"'$trained_model_filename'","testReport":'$test_body',"crossValidationReport":'$cross_validate_body',"trainingDataChecksum":"'$checksum'"}'
+else
+add_new_model_body_dto='{"fileName":"'$trained_model_filename'","testReport":{},"crossValidationReport":{},"trainingDataChecksum":"'$checksum'"}'
+fi
 ready_res=$(curl -X POST -H "x-ruuter-skip-authentication: true" -H "Content-Type: application/json" -d "$add_new_model_body_dto" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-ready")
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $ready_res
 
