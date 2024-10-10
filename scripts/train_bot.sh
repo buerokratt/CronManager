@@ -9,8 +9,6 @@ curl -X POST -H "Content-Type: application/json" -d '{"file_path":"'$TRAINING_FI
 
 checksum=$(curl -X POST -H "Content-Type: text/plain" --data-binary @temp "$TRAINING_DMAPPER/utils/calculate-sha256-checksum")
 
-rm temp
-
 resql_response=$(curl -X POST -H "Content-Type: application/json" "$TRAINING_RESQL/get-latest-ready-model")
 if [ "$resql_response" != [] ]; then
     training_data_checksum=$(echo "$resql_response" | grep -o '"trainingDataChecksum":"[^"]*' | grep -o '[^"]*$')
@@ -26,7 +24,7 @@ processing_res=$(curl -H "x-ruuter-skip-authentication: true" "$TRAINING_PUBLIC_
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $processing_res
 
 # POST request to train model in RASA
-train_response=$(curl -s -X POST -D - -d "$train_yaml" "$TRAINING_RASA/model/train?force_training=true")
+train_response=$(curl -s -X POST -D - --data-binary @temp "$TRAINING_RASA/model/train?force_training=true")
 train_status=$(echo "$train_response" | grep -oP "HTTP/\d\.\d \K\d+")
 trained_model_filename=$(echo "$train_response" | grep -i "^filename:" | sed 's/^filename: //i')
 trained_model_filename=$(echo "$trained_model_filename" | tr -d '\r')
@@ -102,5 +100,5 @@ ready_res=$(curl -X POST -H "x-ruuter-skip-authentication: true" -H "Content-Typ
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $ready_res
 
 rm /data/$trained_model_filename
-
+rm temp
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name finished
