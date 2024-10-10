@@ -5,9 +5,11 @@ echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name started
 . constants.ini
 
 # POST request to merge training yaml files
-train_yaml=$(curl -X POST -H "Content-Type: application/json" -d '{"file_path":"'$TRAINING_FILES_PATH'"}' "$TRAINING_DMAPPER/mergeYaml")
+curl -X POST -H "Content-Type: application/json" -d '{"file_path":"'$TRAINING_FILES_PATH'"}' "$TRAINING_DMAPPER/mergeYaml" > temp
 
-checksum=$(curl -X POST -H "Content-Type: text/plain" -d "$train_yaml" "$TRAINING_DMAPPER/utils/calculate-sha256-checksum")
+checksum=$(curl -X POST -H "Content-Type: text/plain" --data-binary @temp "$TRAINING_DMAPPER/utils/calculate-sha256-checksum")
+
+rm temp
 
 resql_response=$(curl -X POST -H "Content-Type: application/json" "$TRAINING_RESQL/get-latest-ready-model")
 if [ "$resql_response" != [] ]; then
