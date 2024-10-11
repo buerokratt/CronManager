@@ -67,10 +67,10 @@ cv_res=$(curl -H "x-ruuter-skip-authentication: true" "$TRAINING_PUBLIC_RUUTER/r
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $cv_res
 
 # POST request to merge cross validating yaml files
-cross_validate_yaml=$(curl -X POST -H "Content-Type: application/json" -d '{"file_path":"'$CROSS_VALIDATION_FILES_PATH'"}' "$TRAINING_DMAPPER/mergeYaml")
+curl -X POST -H "Content-Type: application/json" -d '{"file_path":"'$CROSS_VALIDATION_FILES_PATH'"}' "$TRAINING_DMAPPER/mergeYaml" > temp2
 
 # POST request to cross validate model in RASA
-cross_validate_response=$(curl -s -w "%{http_code}" -X POST -H "Content-Type: application/x-yaml" -d "$cross_validate_yaml" "$TRAINING_RASA/model/test/intents?cross_validation_folds=2")
+cross_validate_response=$(curl -s -w "%{http_code}" -X POST -H "Content-Type: application/x-yaml" --data-binary @temp2 "$TRAINING_RASA/model/test/intents?cross_validation_folds=2")
 cross_validate_status="${cross_validate_response: -3}"
 if [ "$cross_validate_status" != "200" ]; then
     echo "Model cross validating failed with status code $cross_validate_status"
