@@ -101,4 +101,5 @@ echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $ready_res
 
 rm /data/$trained_model_filename
 rm temp
+rm temp2
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name finished
