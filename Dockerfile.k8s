@@ -31,7 +31,7 @@ ENV application.config-path=/DSL
 COPY .env /app/.env
 RUN echo BUILDTIME=`date +%s` >> /app/.env
 
-RUN adduser cronmanager
+RUN useradd cronmanager
 RUN chown -R cronmanager:cronmanager /app
 RUN chown -R cronmanager:cronmanager /DSL
 USER cronmanager
