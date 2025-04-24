@@ -4,116 +4,106 @@ pwd
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name started
 . constants.ini
 
+NAMESPACE="$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)"
+HELM_REPO_NAME="train"
+MODEL_NAME=$(date +'%Y%m%d-%H%M%S')-rasa-model
+
 get_new_nonce() {
   response=$(curl -s -X POST -H "Content-Type: application/json" "$TRAINING_RESQL/get-new-nonce")
-  nonce=$(echo "$response" |grep -Eo "([a-f0-9-]+-){4}[a-f0-9-]+")
+  nonce=$(echo "$response" | grep -Eo "([a-f0-9-]+-){4}[a-f0-9-]+")
+  if [[ -z "$nonce" ]]; then
+    echo "Failed to retrieve nonce!" >&2
+    exit 1
+  fi
   echo "$nonce"
 }
 
-# POST request to merge training yaml files
-curl -X POST -H "Content-Type: application/json" -d '{"file_path":"'$TRAINING_FILES_PATH'"}' "$TRAINING_DMAPPER/mergeYaml" > temp
+notify_ruuter_with_state() {
+    local state="$1"
+    echo "Notifying ruuter ($(date -u +"%Y-%m-%d %H:%M:%S.%3NZ")) - training state: ${state}"
+    curl -X POST "$TRAINING_PUBLIC_RUUTER/rasa/model/state" \
+         -H "x-ruuter-nonce: $(get_new_nonce)" \
+         -H "Content-Type: application/json" \
+         -d "{\"state\": \"${state}\"}"
+}
 
-#### To be replaced
-# checksum=$(curl -X POST -H "Content-Type: text/plain" --data-binary @temp "$TRAINING_DMAPPER/utils/calculate-sha256-checksum")
+train_bot_job() {
+    # Pre-flight Checks
+    if [ -z "$NAMESPACE" ]; then
+        echo "Error: Failed to retrieve the namespace!" >&2
+        exit 1
+    elif ! kubectl cluster-info &>/dev/null; then
+        echo "Error: No Kubernetes cluster is available!" >&2
+        exit 1
+    elif helm list -n "$NAMESPACE" | grep -q "train-bot"; then
+        echo "Error: The Helm release 'train-bot' already exists in namespace '$NAMESPACE'. Exiting..."
+        exit 1
+    fi
 
-# to be replaced
-# resql_response=$(curl -X POST -H "Content-Type: application/json" "$TRAINING_RESQL/get-latest-ready-model")
-# if [ "$resql_response" != [] ]; then
-#     training_data_checksum=$(echo "$resql_response" | grep -o '"trainingDataChecksum":"[^"]*' | grep -o '[^"]*$')
-# fi
+    echo "Deploying train-bot job..."
+    # TODO - docker-compose equivalent job: training-module/docker-compose-bot.yml - train-bot
+    # volumes:
+    #   - ./DSL/DMapper/training/locations/:/rasa
+    # command:
+    #   - train
+    #   - --data
+    #   - /rasa/data
+    #   - --config
+    #   - /rasa/data/config.yml
+    #   - --domain
+    #   - /rasa/data/domain.yml
+    #   - --out
+    #   - /rasa/models
+    #   - --fixed-model-name
+    #   - ${MODEL_NAME}
+    #   - --force
+    helm upgrade --install train-bot "$HELM_REPO_NAME/train-bot" --namespace "$NAMESPACE" --set serviceAccount.name=train-bot-sa --create-namespace
 
-#### To be replaced
-# if [ "$training_data_checksum" == "$checksum" ]; then
-#     already_trained_res=$(curl -H "x-ruuter-nonce: $(get_new_nonce)" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-already-trained")
-#     echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $already_trained_res
-#     exit 1
-# fi
+    echo "Waiting for train-bot job to complete..."
+    for ((counter=1; counter<=10; counter++)); do
+        status=$(kubectl get job train-bot -n "$NAMESPACE" -o jsonpath='{.status.succeeded}')
+
+        if [ "$status" == "1" ]; then
+            echo "Train-bot job completed."
+        elif [ "$counter" -eq 10 ]; then
+            echo "Train-bot job failed."
+            notify_ruuter_with_state "ERROR"
+            helm uninstall train-bot --namespace "$NAMESPACE"
+            exit 1
+        fi
+        sleep 5
+    done
+}
 
 processing_res=$(curl -H "x-ruuter-nonce: $(get_new_nonce)" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-processing")
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $processing_res
 
-# POST request to train model in RASA
-train_response=$(curl -s -X POST -D - --data-binary @temp "$TRAINING_RASA/model/train?force_training=true")
-train_status=$(echo "$train_response" | grep -oP "HTTP/\d\.\d \K\d+")
-trained_model_filename=$(echo "$train_response" | grep -i "^filename:" | sed 's/^filename: //i')
-trained_model_filename=$(echo "$trained_model_filename" | tr -d '\r')
+train_bot_job
 
-if [ "$train_status" != "200" ]; then
-    echo "Model training failed with status code $train_status"
-    error_res=$(curl -H "x-ruuter-nonce: $(get_new_nonce)" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-error")
-    echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $error_res
-    exit 1
-fi
-
-if $test; then
-# PUT request to load currently trained model in RASA
-load_status=$(curl -s -w "%{http_code}" -X PUT -H "Content-Type: application/json" -d '{"model_file":"/app/models/'$trained_model_filename'"}' "$TRAINING_RASA/model")
-if [ "$load_status" != "204" ]; then
-    echo "Model loading failed with status code $load_status"
-    error_res=$(curl -H "x-ruuter-nonce: $(get_new_nonce)" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-error")
-    echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $error_res
-    exit 1
-fi
-
-testing_res=$(curl -H "x-ruuter-nonce: $(get_new_nonce)" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-testing")
-echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $testing_res
-
-# POST request to merge testing yaml files
-test_yaml=$(curl -X POST -H "Content-Type: application/json" -d '{"file_path":"'$TESTING_FILES_PATH'"}' "$TRAINING_DMAPPER/mergeYaml")
-
-# POST request to test model in RASA
-test_response=$(curl -s -w "%{http_code}" -X POST -d "$test_yaml" "$TRAINING_RASA/model/test/stories")
-test_status="${test_response: -3}"
-if [ "$test_status" != "200" ]; then
-    echo "Model testing failed with status code $test_status"
-    error_res=$(curl -H "x-ruuter-nonce: $(get_new_nonce)" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-error")
-    echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $error_res
-    exit 1
-fi
-test_body="${test_response:: -3}"
-
-cv_res=$(curl -H "x-ruuter-nonce: $(get_new_nonce)" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-cross-validating")
-echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $cv_res
-
-# POST request to merge cross validating yaml files
-curl -X POST -H "Content-Type: application/json" -d '{"file_path":"'$CROSS_VALIDATION_FILES_PATH'"}' "$TRAINING_DMAPPER/mergeYaml" > temp2
-
-# POST request to cross validate model in RASA
-cross_validate_response=$(curl -s -w "%{http_code}" -X POST -H "Content-Type: application/x-yaml" --data-binary @temp2 "$TRAINING_RASA/model/test/intents?cross_validation_folds=2")
-cross_validate_status="${cross_validate_response: -3}"
-
-if [ "$cross_validate_status" != "200" ]; then
-    echo "Model cross validating failed with status code $cross_validate_status"
-    error_res=$(curl -H "x-ruuter-nonce: $(get_new_nonce)" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-error")
-    echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $error_res
-    exit 1
-fi
-cross_validate_body="${cross_validate_response:: -3}"
-fi
-
-copy_file_body_dto='{"destinationFilePath":"'$trained_model_filename'","destinationStorageType":"S3","sourceFilePath":"'$trained_model_filename'","sourceStorageType":"FS"}'
+copy_file_body_dto='{"destinationFilePath":"'$MODEL_NAME'","destinationStorageType":"S3","sourceFilePath":"'$MODEL_NAME'","sourceStorageType":"FS"}'
 copy_file_response=$(curl -s -w "%{http_code}" -X POST -H "Content-Type: application/json" -d "$copy_file_body_dto" "$S3_FERRY_TRAIN/v1/files/copy")
 copy_file_status="${copy_file_response: -3}"
 if [ "$copy_file_status" != "201" ]; then
     echo "Copying file from local to remote storage failed with status code $copy_file_status"
-    error_res=$(curl -H "x-ruuter-nonce: $(get_new_nonce)" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-error")
-    echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $error_res
+    notify_ruuter_with_state "ERROR"
+    rm /rasa/models/$MODEL_NAME
     exit 1
 fi
 
-if $test; then
-add_new_model_body_dto='{"fileName":"'$trained_model_filename'","testReport":'$test_body',"crossValidationReport":'$cross_validate_body',"trainingDataChecksum":""}'
-echo "did do the test"
-echo "$add_new_model_body_dto" > temp3 || echo "failed to make file temp3"
-else
-add_new_model_body_dto='{"fileName":"'$trained_model_filename'","testReport":{},"crossValidationReport":{},"trainingDataChecksum":""}'
-echo "did not do the test"
-echo "$add_new_model_body_dto" > temp3 || echo "failed to make file temp3"
-fi
-ready_res=$(curl -X POST -H "x-ruuter-nonce: $(get_new_nonce)" -H "Content-Type: application/json" --data-binary @temp3 "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-ready") || echo "failed to send to ruuter"
+add_new_model_body_dto='{"fileName":"'$MODEL_NAME'","testReport":{},"crossValidationReport":{},"trainingDataChecksum":""}'
+ready_res=$(curl -X POST -H "x-ruuter-nonce: $(get_new_nonce)" -H "Content-Type: application/json" -d "$add_new_model_body_dto" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-ready")
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $ready_res
 
-rm /data/$trained_model_filename
-rm temp
-rm temp2
+if $test; then
+    /app/scripts/test_bot.sh "$MODEL_NAME"
+    if [ $? -ne 0 ]; then
+        echo "test_bot.sh failed. Stopping execution."
+        rm /rasa/models/$MODEL_NAME
+        exit 1
+    fi
+
+    /app/scripts/cross_validate_bot.sh "$MODEL_NAME"
+fi
+
+rm /rasa/models/$MODEL_NAME
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name finished
