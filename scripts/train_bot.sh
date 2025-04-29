@@ -1,8 +1,9 @@
 #!/bin/bash
 script_name=`basename $0`
 pwd
+script_dir=$(cd "$(dirname "$0")" && pwd)
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name started
-. constants.ini
+. "$script_dir/constants.ini"
 
 NAMESPACE="$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)"
 HELM_REPO_NAME="train"
