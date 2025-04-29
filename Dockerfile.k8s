@@ -39,11 +39,14 @@ RUN curl --proto "=https" -fsSL https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.
     && tar -zxvf helm.tar.gz \
     && mv linux-amd64/helm /usr/local/bin/helm \
     && rm -rf helm.tar.gz linux-amd64
-
+RUN mkdir /home/cronmanager
 RUN useradd cronmanager
 RUN chown -R cronmanager:cronmanager /app
 RUN chown -R cronmanager:cronmanager /DSL
+RUN chown -R cronmanager:cronmanager /home/cronmanager
 USER cronmanager
+
+
 
 EXPOSE 9010
 
