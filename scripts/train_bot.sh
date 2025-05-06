@@ -58,7 +58,7 @@ train_bot_job() {
     #   - --fixed-model-name
     #   - ${MODEL_NAME}
     #   - --force
-    helm upgrade --install train-bot "$HELM_REPO_NAME/train-bot" --namespace "$NAMESPACE" --set serviceAccount.name=train-bot-sa --create-namespace
+    helm upgrade --install train-bot "$HELM_REPO_NAME/train-bot" --namespace "$NAMESPACE" --set modelName="$MODEL_NAME" --set serviceAccount.name=train-bot-sa --create-namespace
 
     echo "Waiting for train-bot job to complete..."
     for ((counter=1; counter<=10; counter++)); do
