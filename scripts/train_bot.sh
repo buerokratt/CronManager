@@ -7,7 +7,7 @@ echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name started
 get_new_nonce() {
   response=$(curl -s -X POST -H "Content-Type: application/json" "$TRAINING_RESQL/security/create_nonce")
   nonce=$(echo "$response" |grep -Eo "([a-f0-9-]+-){4}[a-f0-9-]+")
-  echo "NONCE RESPONSE IS $nonce"
+  echo "$nonce"
 }
 
 # POST request to merge training yaml files
@@ -112,6 +112,8 @@ echo "$add_new_model_body_dto" > temp3 || echo "failed to make file temp3"
 fi
 ready_res=$(curl -X POST -H "x-ruuter-nonce: $(get_new_nonce)" -H "Content-Type: application/json" --data-binary @temp3 "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-ready") || echo "failed to send to ruuter"
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $ready_res
+echo "NONCE IS... $(get_new_nonce)"
+
 
 rm /data/$trained_model_filename
 #rm temp
