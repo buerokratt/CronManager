@@ -19,14 +19,18 @@ fi
 if [ "$resql_response" == [] ]; then
     echo "error: specified model not found in the database"
     exit 1
+else
+    echo "RESQL RESPONSE IS... $resql_response"
 fi
 
 filename=$(echo "$resql_response" | grep -o '"fileName":"[^"]*' | grep -o '[^"]*$')
+echo "FILENAME ECHO... $filename"
+
 
 copy_file_body_dto='{"destinationFilePath":"'$filename'","destinationStorageType":"FS","sourceFilePath":"'$filename'","sourceStorageType":"S3"}'
-echo "$copy_file_body_dto"
+echo "FIRST ECHO... $copy_file_body_dto"
 copy_file_response=$(curl -s -w "%{http_code}" -X POST -H "Content-Type: application/json" -d "$copy_file_body_dto" "$S3_FERRY_LOAD/v1/files/copy")
-echo "$copy_file_response"
+echo "SEcOND ECHO... $copy_file_response"
 copy_file_status="${copy_file_response: -3}"
 if [ "$copy_file_status" != "201" ]; then
     echo "error: model copying from remote to local storage failed with status code $copy_file_status"
