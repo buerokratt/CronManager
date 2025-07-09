@@ -2,7 +2,7 @@ name: Build and publish GUI
 
 on:
   push:
-    branches: [ v2.0.2 ]
+    branches: [ sql-refacto ]
     paths:
       - '.env.k8s'
 
@@ -33,7 +33,7 @@ jobs:
       - name: Docker Build
         run: | 
            pwd
-           docker image build -f Dockerfile.k8s --tag $DOCKER_TAG_CUSTOM .
+           docker image build -f Dockerfile.python --tag $DOCKER_TAG_CUSTOM .
 
       - name: Log in to GitHub container registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
