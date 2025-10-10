@@ -16,7 +16,7 @@ RUN mkdir -p build/libs && (cd build/libs; jar -xf *.jar)
 
 FROM eclipse-temurin:17-jdk
 VOLUME /build/tmp
-
+RUN apt update && apt install -y jq
 ARG DEPENDENCY=/workspace/app/build/libs
 COPY --from=build ${DEPENDENCY}/BOOT-INF/lib /app/lib
 COPY --from=build ${DEPENDENCY}/META-INF /app/META-INF
@@ -24,6 +24,7 @@ COPY --from=build ${DEPENDENCY}/BOOT-INF/classes /app
 COPY DSL /DSL
 COPY scripts /app/scripts/
 COPY constants.ini /app/constants.ini
+COPY constants.ini /app/scripts/constants.ini
 RUN chmod a+x /app/scripts/*
 
 ENV application.config-path=/DSL
