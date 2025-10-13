@@ -25,7 +25,7 @@ ids=$(echo "$dead_chat_ids" | jq -r '.response.keys' | tr ',' '\n')
 if [ -n "$ids" ]; then
   for id in $ids; do
     echo "$(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - Ending chat $id"
-    curl -s -X POST "$CHATBOT_RUUTER_PUBLIC/chats/end" \
+    curl -s -X POST "http://component-byk-ruuter:8080/backoffice/chats/end" \
       -H "Content-Type: application/json" \
       -d "{
         \"message\": {
