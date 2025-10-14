@@ -1,7 +1,8 @@
 #!/bin/bash -x
+set -x
 script_name=`basename $0`
 pwd
-echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name started
+echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name started!
 . constants.ini
 
 get_new_nonce() {
