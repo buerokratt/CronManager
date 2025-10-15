@@ -24,7 +24,6 @@ COPY --from=build ${DEPENDENCY}/BOOT-INF/classes /app
 COPY DSL /DSL
 COPY scripts /app/scripts/
 COPY constants.ini /app/constants.ini
-COPY constants.ini /app/scripts/constants.ini
 RUN chmod a+x /app/scripts/*
 
 ENV application.config-path=/DSL
