@@ -1,8 +1,7 @@
-#!/bin/bash -x
-set -x
+#!/bin/bash
 script_name=`basename $0`
 pwd
-echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name started!
+echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name started
 . constants.ini
 
 get_new_nonce() {
@@ -10,7 +9,6 @@ get_new_nonce() {
   echo "$response"
   nonce=$(echo "$response" |grep -Eo "([a-f0-9-]+-){4}[a-f0-9-]+")
   echo "$nonce"
-  return $nonce
 }
 
 # POST request to merge training yaml files
