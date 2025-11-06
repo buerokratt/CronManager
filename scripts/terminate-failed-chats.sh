@@ -24,7 +24,7 @@ dead_chat_ids=$(curl -s \
 
 echo "$(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - Raw Response: $dead_chat_ids"
 
-ids=$(echo "$dead_chat_ids" | jq -r '.response' | tr ',' '\n')
+ids=$(echo "$dead_chat_ids" | jq -r '.response[]')
 
 if [ -n "$ids" ]; then
   for id in $ids; do
