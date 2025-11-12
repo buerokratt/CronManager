@@ -9,7 +9,7 @@ currentTimestamp() {
 
 echo "$(currentTimestamp) - $script_name started"
 
-.. /app/constants.ini
+../app/constants.ini
 
 get_new_nonce() {
   response=$(curl -s -X POST -H "Content-Type: application/json" "$TRAINING_RESQL/get-new-nonce")
