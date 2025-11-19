@@ -4,6 +4,12 @@ pwd
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name started
 . constants.ini
 
+get_new_nonce() {
+  response=$(curl -s -X POST -H "Content-Type: application/json" "$TRAINING_RESQL/get-new-nonce")
+  nonce=$(echo "$response" |grep -Eo "([a-f0-9-]+-){4}[a-f0-9-]+")
+  echo "$nonce"
+}
+
 if [ -z "$versionNumber" ]; then
     resql_response=$(curl -X POST -H "Content-Type: application/json" "$TRAINING_RESQL/get-latest-ready-model")
 else
@@ -29,11 +35,12 @@ sleep 5
 load_status=$(curl -s -w "%{http_code}" -X PUT -H "Content-Type: application/json" -d '{"model_file":"/app/models/'$filename'"}' "$CHATBOT_BOT/model")
 if [ "$load_status" != "204" ]; then
     echo "error: failed to load trained model from RASA with status code $load_status"
+    rm /data/$filename
     exit 1
 fi
 
 add_deployed_model_body_dto='{"fileName":"'$filename'"}'
-deployed_res=$(curl -X POST -H "x-ruuter-skip-authentication: true" -H "Content-Type: application/json" -d "$add_deployed_model_body_dto" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-deployed")
+deployed_res=$(curl -X POST -H "x-ruuter-nonce: $(get_new_nonce)" -H "Content-Type: application/json" -d "$add_deployed_model_body_dto" "$TRAINING_PUBLIC_RUUTER/rasa/model/add-new-model-deployed")
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $deployed_res
 
 shopt -s extglob 
