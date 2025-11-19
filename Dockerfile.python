@@ -1,15 +1,19 @@
 FROM eclipse-temurin:17-jdk AS build
 WORKDIR /workspace/app
 
-# Install Python 3.10
+# Install minimal dependencies for uv
 RUN apt-get update && apt-get install -y \
-    software-properties-common \
-    && add-apt-repository ppa:deadsnakes/ppa \
-    && apt-get update && apt-get install -y python3.10 python3.10-venv python3.10-dev python3-pip \
+    curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Make python3.10 the default python3
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+# Install uv using unmanaged installation to /usr/local/uv
+RUN mkdir -p /usr/local/uv && \
+    curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="/usr/local/uv" sh && \
+    ln -s /usr/local/uv/uv /usr/local/bin/uv
+
+# Let uv install and manage Python 3.12.10
+RUN uv python install 3.12.10
 
 # Continue with your existing steps
 COPY gradlew .
@@ -28,19 +32,23 @@ RUN mkdir -p build/libs && (cd build/libs; jar -xf *.jar)
 FROM eclipse-temurin:17-jdk
 VOLUME /build/tmp
 
-# Install Python 3.10 in the second stage as well
+# Install minimal dependencies for uv and jq
 RUN apt-get update && apt-get install -y \
-    software-properties-common \
-    && add-apt-repository ppa:deadsnakes/ppa \
-    && apt-get update && apt-get install -y python3.10 python3.10-venv python3.10-dev python3-pip \
+    curl \
+    ca-certificates \
+    jq \
     && rm -rf /var/lib/apt/lists/*
 
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+# Install uv using unmanaged installation to /usr/local/uv
+RUN mkdir -p /usr/local/uv && \
+    curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="/usr/local/uv" sh && \
+    ln -s /usr/local/uv/uv /usr/local/bin/uv
 
-RUN apt-get update && apt-get install -y jq
+# Let uv install and manage Python 3.12.10
+RUN uv python install 3.12.10
 
-# Creating python virtual environment to download and store dependencies
-RUN python3.10 -m venv /app/python_virtual_env 
+# Creating python virtual environment using uv with uv-managed Python
+RUN uv venv /app/python_virtual_env --python 3.12.10
 
 ARG DEPENDENCY=/workspace/app/build/libs
 COPY --from=build ${DEPENDENCY}/BOOT-INF/lib /app/lib
@@ -65,4 +73,3 @@ USER cronmanager
 EXPOSE 9010
 
 ENTRYPOINT ["java","-cp","app:app/lib/*","ee.buerokratt.cronmanager.CronManagerApplication"]
-
