@@ -3,7 +3,7 @@ script_name=`basename $0`
 pwd
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name started
 . constants.ini
-# Removed one echo that was not needed
+
 get_new_nonce() {
   response=$(curl -s -X POST -H "Content-Type: application/json" "$TRAINING_RESQL/get-new-nonce")
   nonce=$(echo "$response" |grep -Eo "([a-f0-9-]+-){4}[a-f0-9-]+")
