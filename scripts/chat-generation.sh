@@ -5,7 +5,7 @@ currentTimestamp() {
   date -u +"%Y-%m-%dT%H:%M:%S.%3NZ"
 }
 
-. constants.ini
+source ../constants.ini
 
 initial_message=$(cat <<EOF
 {
