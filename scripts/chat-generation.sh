@@ -48,7 +48,7 @@ echo "$(currentTimestamp) - Creating new chat"
 response_headers=$(mktemp)
 response_body=$(mktemp)
 
-curl -s -D "$response_headers" -o "$response_body" -X POST "$CHATBOT_RUUTER_PUBLIC/backoffice/chats/init" \
+curl -s -D "$response_headers" -o "$response_body" -X POST "$CHATBOT_RUUTER_PUBLIC/chats/init" \
   -H "Content-Type: application/json" \
   -d "$initial_message"
 
@@ -69,7 +69,7 @@ fi
 echo "chat_id: $chat_id"
 echo "chat_jwt: $chat_jwt"
 
-initialResponse=$(curl -s -X GET "$CHATBOT_RUUTER_PUBLIC/backoffice/chats/get" \
+initialResponse=$(curl -s -X GET "$CHATBOT_RUUTER_PUBLIC/chats/get" \
   -H "Cookie: chatJwt=$chat_jwt")
 
 sleep 1.5
@@ -107,14 +107,14 @@ EOF
 
 sleep 1.5
 
-response=$(curl -s -X POST "$CHATBOT_RUUTER_PUBLIC/backoffice/chats/messages/add" \
+response=$(curl -s -X POST "$CHATBOT_RUUTER_PUBLIC/chats/messages/add" \
   -H "Content-Type: application/json" \
   -H "Cookie: chatJwt=$chat_jwt" \
   -d "$second_message")
 
 sleep 1.5
 
-bot_response=$(curl -s -X GET "$CHATBOT_RUUTER_PUBLIC/backoffice/chats/get" \
+bot_response=$(curl -s -X GET "$CHATBOT_RUUTER_PUBLIC/chats/get" \
   -H "Cookie: chatJwt=$chat_jwt")
 
 last_response=$(echo "$bot_response" | jq -r '.response.lastMessage')
@@ -157,7 +157,7 @@ terminate_message=$(cat <<EOF
 EOF
 )
 
-terminateChat=$(curl -s -X POST "$CHATBOT_RUUTER_PUBLIC/backoffice/chats/end" \
+terminateChat=$(curl -s -X POST "$CHATBOT_RUUTER_PUBLIC/chats/end" \
       -H "Content-Type: application/json" \
       -H "Cookie: chatJwt=$chat_jwt" \
       -d "$terminate_message")
