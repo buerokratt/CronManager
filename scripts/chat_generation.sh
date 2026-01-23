@@ -5,7 +5,8 @@ currentTimestamp() {
   date -u +"%Y-%m-%dT%H:%M:%S.%3NZ"
 }
 
-source ../constants.ini
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../constants.ini"
 
 initial_message=$(cat <<EOF
 {
