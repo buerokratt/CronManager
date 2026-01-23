@@ -9,7 +9,8 @@ currentTimestamp() {
 
 echo "$(currentTimestamp) - $script_name started"
 
-source ../constants.ini
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../constants.ini"
 
 echo "$TRAINING_RESQL"
 echo "$INACTIVITY_TIME"
