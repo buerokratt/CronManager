@@ -1,4 +1,4 @@
- #!/bin/bash
+#!/bin/bash
 
 script_name=`basename $0`
 pwd
@@ -17,34 +17,41 @@ get_new_nonce() {
   echo "$nonce"
 }
 
-dead_chat_ids=$(curl -s \
+dead_chat_res=$(curl -s \
   -H "x-ruuter-nonce: $(get_new_nonce)" \
   -H "Content-Type: application/json" \
+  -X POST \
+  -d "{\"inactivityTime\": ${INACTIVITY_TIME}}" \
   "$CHATBOT_RUUTER_PRIVATE/cron-tasks/end-dead-chats")
 
-echo "$(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - Raw Response: $dead_chat_ids"
+echo "$(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - Raw Response: $dead_chat_res"
 
-ids=$(echo "$dead_chat_ids" | jq -r '.response[]')
+dead_chats=$(echo "$dead_chat_res" | jq -r '.response')
+chat_count=$(echo "$dead_chats" | jq 'length')
 
-if [ -n "$ids" ]; then
-  for id in $ids; do
-    echo "$(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - Ending chat $id"
+echo "$(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - Found $chat_count dead chats"
+
+if [ "$chat_count" -gt 0 ]; then
+  echo "$dead_chats" | jq -c '.[]' | while read -r chat; do
+    id=$(echo "$chat" | jq -r '.base_id')
+    ended_time=$(echo "$chat" | jq -r '.ended_time')
+    
+    echo "$(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - Ending chat $id with ended time: $ended_time"
     curl -s -X POST "$CHATBOT_RUUTER_PUBLIC/chats/end" \
       -H "Content-Type: application/json" \
       -d "{
         \"message\": {
           \"chatId\": \"$id\",
           \"authorRole\": \"end-user\",
-          \"authorTimestamp\": \"$(currentTimestamp)\",
+          \"authorTimestamp\": \"$ended_time\",
           \"event\": \"CLIENT_LEFT_FOR_UNKNOWN_REASONS\"
         },
         \"status\": \"ENDED\",
-        \"domain\":\"none\"
+        \"domain\":\"none\",
+        \"ended\": \"$ended_time\"
       }"
     echo
   done
-else
-  echo "$(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - No dead chats found"
 fi
 
-echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name finished
+echo "$(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name finished"
