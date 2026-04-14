@@ -18,7 +18,7 @@ if [ "$CHAT_GENERATION" == "True" ]; then
       "authorRole":"end-user"
       },
     "endUserTechnicalData": {
-      "endUserUrl":"http://localhost:3003/",
+      "endUserUrl":"$DOMAIN",
       "endUserOs":"Agent: Firefox (v143.0), OS: Ubuntu (vnone), device: unknown"
       },
     "holidays": [
@@ -36,9 +36,9 @@ if [ "$CHAT_GENERATION" == "True" ]; then
       "2025-12-26"
       ],
     "holidayNames": "2025-01-01-uusaasta,2025-02-24-iseseisvuspäev,2025-04-18-suur reede,2025-04-20-lihavõtted,2025-05-01-kevadpüha,2025-06-08-nelipühade 1. püha,2025-06-23-võidupüha,2025-06-24-jaanipäev,2025-08-20-taasiseseisvumispäev,2025-12-24-jõululaupäev,2025-12-25-esimene jõulupüha,2025-12-26-teine jõulupüha",
-    "domain":"none"
+    "domain":"$DOMAIN"
   }
-  EOF
+EOF
   )
 
 
@@ -103,9 +103,9 @@ if [ "$CHAT_GENERATION" == "True" ]; then
       "2025-12-26"
       ],
     "holidayNames":"2025-01-01-uusaasta,2025-02-24-iseseisvuspäev,2025-04-18-suur reede,2025-04-20-lihavõtted,2025-05-01-kevadpüha,2025-06-08-nelipühade 1. püha,2025-06-23-võidupüha,2025-06-24-jaanipäev,2025-08-20-taasiseseisvumispäev,2025-12-24-jõululaupäev,2025-12-25-esimene jõulupüha,2025-12-26-teine jõulupüha",
-    "domain":"none"
+    "domain":"$DOMAIN"
   }
-  EOF
+EOF
   )
 
   sleep 1.5
@@ -154,10 +154,9 @@ if [ "$CHAT_GENERATION" == "True" ]; then
       "authorRole":"end-user",
       "event": "$event"
       },
-    "status": "ENDED",
-    "domain":"none"
+    "status": "ENDED"
   }
-  EOF
+EOF
   )
 
   terminateChat=$(curl -s -X POST "$CHATBOT_RUUTER_PUBLIC/chats/end" \
