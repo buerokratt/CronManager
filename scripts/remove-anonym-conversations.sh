@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../constants.ini"
 
 get_new_nonce() {
-  response=$(curl -s -X POST -H "Content-Type: application/json" "$CHATBOT_BOT_RESQL/get-new-nonce")
+  response=$(curl -s -X POST -H "Content-Type: application/json" "$TRAINING_RESQL/get-new-nonce")
   nonce=$(echo "$response" |grep -Eo "([a-f0-9-]+-){4}[a-f0-9-]+")
   echo "$nonce"
 }
