@@ -141,3 +141,9 @@ This can be used when administrator has changed the configuration in runtime.
 - `shellEnvironment` - YAML list of key-value pairs (key=value) that should be passed 
 to executed scripts 
 - `appRootPath`- location of `scripts` folder, usually application root, default `/app`
+
+### `constants.ini`
+| Key | Example value | Required | Description |
+| --- | --- | --- | --- |
+| `CHAT_GENERATION_CSA_ID` | `EE30303039914` | Yes | Personal ID / login of the CSA account used by chat generation. The scripts use this value to authenticate the CSA, mark the CSA as online, assign the generated chat to that CSA, and send CSA-authored messages. |
+| `CHAT_GENERATION_CSA_PASSWORD` |  | Yes | Password for `CHAT_GENERATION_CSA_ID`. This is intentionally left empty in the template and must be supplied per environment. It is required so the script can log in and receive the backoffice authentication cookie used for private Ruuter requests. |
