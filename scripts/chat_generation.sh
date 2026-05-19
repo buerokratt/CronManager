@@ -94,6 +94,16 @@ require_command curl
 require_command jq
 
 CHAT_GENERATION="${CHAT_GENERATION:-True}"
+isAuthenticated="${1:-${isAuthenticated:-false}}"
+isAuthenticated="$(printf '%s' "$isAuthenticated" | tr '[:upper:]' '[:lower:]')"
+
+case "$isAuthenticated" in
+  true|false)
+    ;;
+  *)
+    fail "isAuthenticated must be true or false"
+    ;;
+esac
 
 if [[ "$CHAT_GENERATION" != "True" && "$CHAT_GENERATION" != "true" ]]; then
   echo "$(currentTimestamp) - CHAT_GENERATION is set false"
@@ -122,7 +132,7 @@ HOLIDAYS='["2025-01-01","2025-02-24","2025-04-18","2025-04-20","2025-05-01","202
 HOLIDAY_NAMES='2025-01-01-uusaasta,2025-02-24-iseseisvuspäev,2025-04-18-suur reede,2025-04-20-lihavõtted,2025-05-01-kevadpüha,2025-06-08-nelipühade 1. püha,2025-06-23-võidupüha,2025-06-24-jaanipäev,2025-08-20-taasiseseisvumispäev,2025-12-24-jõululaupäev,2025-12-25-esimene jõulupüha,2025-12-26-teine jõulupüha'
 
 script_name=$(basename "$0")
-echo "$(currentTimestamp) - $script_name started"
+echo "$(currentTimestamp) - $script_name started with isAuthenticated=$isAuthenticated"
 
 headers=$(mktemp)
 body=$(mktemp)
@@ -195,92 +205,99 @@ end_user_message_payload=$(jq -n \
 # Adds the configured end-user message to the newly opened chat.
 request POST "$PUBLIC_URL/chats/messages/add" "$end_user_message_payload" "chatJwt=$chat_jwt" "$headers" "$body"
 
-echo "$(currentTimestamp) - Transferring chat to CSA queue"
-forward_payload=$(jq -n \
-  --arg chatId "$chat_id" \
-  --arg messageId "$(random_uuid)" \
-  --arg ts "$(currentTimestamp)" \
-  --argjson holidays "$HOLIDAYS" \
-  --arg holidayNames "$HOLIDAY_NAMES" \
-  '{
-    message: {
+user_jwt=""
+rating=""
+
+if [[ "$isAuthenticated" == "true" ]]; then
+  echo "$(currentTimestamp) - Transferring chat to CSA queue"
+  forward_payload=$(jq -n \
+    --arg chatId "$chat_id" \
+    --arg messageId "$(random_uuid)" \
+    --arg ts "$(currentTimestamp)" \
+    --argjson holidays "$HOLIDAYS" \
+    --arg holidayNames "$HOLIDAY_NAMES" \
+    '{
+      message: {
+        chatId: $chatId,
+        id: $messageId,
+        authorTimestamp: $ts,
+        event: "forwarded_to_backoffice",
+        authorRole: "buerokratt"
+      },
+      holidays: $holidays,
+      holidayNames: $holidayNames
+    }')
+  # Forwards the public chat into the backoffice queue for CSA handling.
+  request POST "$PUBLIC_URL/chats/forwards/forward-to-backoffice" "$forward_payload" "chatJwt=$chat_jwt" "$headers" "$body"
+
+  echo "$(currentTimestamp) - Assigning chat to CSA"
+  assign_payload=$(jq -n \
+    --arg chatId "$chat_id" \
+    --arg csaId "$CSA_ID" \
+    --arg displayName "$CSA_DISPLAY_NAME" \
+    --arg title "$CSA_TITLE" \
+    '{id: $chatId, customerSupportId: $csaId, customerSupportDisplayName: $displayName, csaTitle: $title}')
+  # Assigns the queued chat to the logged-in CSA.
+  request POST "$PRIVATE_URL/chats/claim" "$assign_payload" "customJwtCookie=$csa_jwt" "$headers" "$body"
+
+  echo "$(currentTimestamp) - CSA asks end-user to authenticate"
+  csa_message_payload=$(jq -n \
+    --arg chatId "$chat_id" \
+    --arg csaId "$CSA_ID" \
+    --arg displayName "$CSA_DISPLAY_NAME" \
+    --arg ts "$(currentTimestamp)" \
+    '{
       chatId: $chatId,
-      id: $messageId,
+      authorId: $csaId,
+      authorFirstName: $displayName,
+      authorRole: "backoffice-user",
       authorTimestamp: $ts,
-      event: "forwarded_to_backoffice",
-      authorRole: "buerokratt"
-    },
-    holidays: $holidays,
-    holidayNames: $holidayNames
-  }')
-# Forwards the public chat into the backoffice queue for CSA handling.
-request POST "$PUBLIC_URL/chats/forwards/forward-to-backoffice" "$forward_payload" "chatJwt=$chat_jwt" "$headers" "$body"
+      content: "Palun autentige ennast, et saaksime vestlusega jätkata.",
+      event: "requested-authentication"
+    }')
+  # Inserts the CSA authentication request message into the chat.
+  request POST "$PRIVATE_URL/agents/chats/messages/insert" "$csa_message_payload" "customJwtCookie=$csa_jwt" "$headers" "$body"
 
-echo "$(currentTimestamp) - Assigning chat to CSA"
-assign_payload=$(jq -n \
-  --arg chatId "$chat_id" \
-  --arg csaId "$CSA_ID" \
-  --arg displayName "$CSA_DISPLAY_NAME" \
-  --arg title "$CSA_TITLE" \
-  '{id: $chatId, customerSupportId: $csaId, customerSupportDisplayName: $displayName, csaTitle: $title}')
-# Assigns the queued chat to the logged-in CSA.
-request POST "$PRIVATE_URL/chats/claim" "$assign_payload" "customJwtCookie=$csa_jwt" "$headers" "$body"
+  echo "$(currentTimestamp) - Mock end-user authenticates"
+  tara_payload=$(jq -n \
+    --arg idCode "$END_USER_ID" \
+    --arg displayName "$END_USER_FIRST_NAME $END_USER_LAST_NAME" \
+    --arg firstName "$END_USER_FIRST_NAME" \
+    --arg lastName "$END_USER_LAST_NAME" \
+    --arg email "$END_USER_EMAIL" \
+    --arg fullName "$END_USER_FIRST_NAME $END_USER_LAST_NAME" \
+    '{
+      idCode: $idCode,
+      displayName: $displayName,
+      firstName: $firstName,
+      lastName: $lastName,
+      csaEmail: $email,
+      csaTitle: "",
+      authorities: "ROLE_END_USER",
+      authMethod: "id-card",
+      fullName: $fullName
+    }')
+  # Mocks TARA authentication for the end-user and stores the returned JWTTOKEN.
+  request POST "$PUBLIC_URL/auth/tara/login" "$tara_payload" "" "$headers" "$body"
+  tara_jwt=$(extract_cookie JWTTOKEN "$headers")
+  [[ -n "$tara_jwt" ]] || fail "Failed to extract JWTTOKEN"
+  # Resolves the authenticated end-user name and refreshes the userJwt cookie used by later chat requests.
+  request GET "$PUBLIC_URL/chats/users/name" "" "chatJwt=$chat_jwt; JWTTOKEN=$tara_jwt" "$headers" "$body"
+  user_jwt=$(extract_cookie userJwt "$headers")
 
-echo "$(currentTimestamp) - CSA asks end-user to authenticate"
-csa_message_payload=$(jq -n \
-  --arg chatId "$chat_id" \
-  --arg csaId "$CSA_ID" \
-  --arg displayName "$CSA_DISPLAY_NAME" \
-  --arg ts "$(currentTimestamp)" \
-  '{
-    chatId: $chatId,
-    authorId: $csaId,
-    authorFirstName: $displayName,
-    authorRole: "backoffice-user",
-    authorTimestamp: $ts,
-    content: "Palun autentige ennast, et saaksime vestlusega jätkata.",
-    event: "requested-authentication"
-  }')
-# Inserts the CSA authentication request message into the chat.
-request POST "$PRIVATE_URL/agents/chats/messages/insert" "$csa_message_payload" "customJwtCookie=$csa_jwt" "$headers" "$body"
-
-echo "$(currentTimestamp) - Mock end-user authenticates"
-tara_payload=$(jq -n \
-  --arg idCode "$END_USER_ID" \
-  --arg displayName "$END_USER_FIRST_NAME $END_USER_LAST_NAME" \
-  --arg firstName "$END_USER_FIRST_NAME" \
-  --arg lastName "$END_USER_LAST_NAME" \
-  --arg email "$END_USER_EMAIL" \
-  --arg fullName "$END_USER_FIRST_NAME $END_USER_LAST_NAME" \
-  '{
-    idCode: $idCode,
-    displayName: $displayName,
-    firstName: $firstName,
-    lastName: $lastName,
-    csaEmail: $email,
-    csaTitle: "",
-    authorities: "ROLE_END_USER",
-    authMethod: "id-card",
-    fullName: $fullName
-  }')
-# Mocks TARA authentication for the end-user and stores the returned JWTTOKEN.
-request POST "$PUBLIC_URL/auth/tara/login" "$tara_payload" "" "$headers" "$body"
-tara_jwt=$(extract_cookie JWTTOKEN "$headers")
-[[ -n "$tara_jwt" ]] || fail "Failed to extract JWTTOKEN"
-# Resolves the authenticated end-user name and refreshes the userJwt cookie used by later chat requests.
-request GET "$PUBLIC_URL/chats/users/name" "" "chatJwt=$chat_jwt; JWTTOKEN=$tara_jwt" "$headers" "$body"
-user_jwt=$(extract_cookie userJwt "$headers")
-
-# Note: to support both ranges 1-10 and 1-5
-ratings=(1 2 3 4 5)
-rating="${ratings[$RANDOM % ${#ratings[@]}]}"
-echo "$(currentTimestamp) - End-user selects feedback rating $rating"
-rating_payload=$(jq -n \
-  --arg chatId "$chat_id" \
-  --argjson rating "$rating" \
-  '{chatId: $chatId, feedbackRating: $rating}')
-# Saves a random feedback rating for the authenticated chat.
-request POST "$PUBLIC_URL/chats/feedbacks/rating" "$rating_payload" "chatJwt=$chat_jwt${user_jwt:+; userJwt=$user_jwt}" "$headers" "$body"
+  # Note: to support both ranges 1-10 and 1-5
+  ratings=(1 2 3 4 5)
+  rating="${ratings[$RANDOM % ${#ratings[@]}]}"
+  echo "$(currentTimestamp) - End-user selects feedback rating $rating"
+  rating_payload=$(jq -n \
+    --arg chatId "$chat_id" \
+    --argjson rating "$rating" \
+    '{chatId: $chatId, feedbackRating: $rating}')
+  # Saves a random feedback rating for the authenticated chat.
+  request POST "$PUBLIC_URL/chats/feedbacks/rating" "$rating_payload" "chatJwt=$chat_jwt${user_jwt:+; userJwt=$user_jwt}" "$headers" "$body"
+else
+  echo "$(currentTimestamp) - Skipping end-user authentication"
+fi
 
 events=(
   "CLIENT_LEFT_WITH_ACCEPTED"
@@ -320,4 +337,8 @@ terminate_payload=$(jq -n \
 # Ends the chat with the rotating closure event and marks it as ENDED.
 request POST "$PUBLIC_URL/chats/end" "$terminate_payload" "chatJwt=$chat_jwt${user_jwt:+; userJwt=$user_jwt}" "$headers" "$body"
 
-echo "$(currentTimestamp) - $script_name finished; authenticated chat $chat_id ended with $event and feedback $rating"
+if [[ "$isAuthenticated" == "true" ]]; then
+  echo "$(currentTimestamp) - $script_name finished; authenticated chat $chat_id ended with $event and feedback $rating"
+else
+  echo "$(currentTimestamp) - $script_name finished; anonymous chat $chat_id ended with $event"
+fi
