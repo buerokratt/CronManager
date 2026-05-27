@@ -2,7 +2,8 @@
 script_name=`basename $0`
 pwd
 echo $(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name started
-. constants.ini
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../constants.ini"
 
 if [ "$SMAX_INTEGRATION_ENABLED" = "false" ]; then
   echo "$(date -u +"%Y-%m-%d %H:%M:%S.%3NZ") - $script_name exiting: SMAX integration disabled"
@@ -10,7 +11,7 @@ if [ "$SMAX_INTEGRATION_ENABLED" = "false" ]; then
 fi
 
 get_new_nonce() {
-  response=$(curl -s -X POST -H "Content-Type: application/json" "$CHATBOT_TRAINING_RESQL/get-new-nonce")
+  response=$(curl -s -X POST -H "Content-Type: application/json" "$TRAINING_RESQL/get-new-nonce")
   nonce=$(echo "$response" |grep -Eo "([a-f0-9-]+-){4}[a-f0-9-]+")
   echo "$nonce"
 }
