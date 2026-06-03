@@ -141,3 +141,21 @@ This can be used when administrator has changed the configuration in runtime.
 - `shellEnvironment` - YAML list of key-value pairs (key=value) that should be passed 
 to executed scripts 
 - `appRootPath`- location of `scripts` folder, usually application root, default `/app`
+
+### `constants.ini`
+| Key | Example value | Required | Description |
+| --- | --- | --- | --- |
+| `CHAT_GENERATION_CSA_ID` | `EE30303039914` | No | By default it has fallback to `EE30303039914` (chat_generation.sh) |
+
+
+## Chat generation endpoints
+
+`chat_generation.sh` uses the private Buerokratt Chatbot Ruuter endpoints `POST /backoffice/cron-tasks/chat-generation/message` and `POST /backoffice/cron-tasks/chat-generation/insert-chat` to create test and demo chat data. These endpoints are not regular backoffice user actions; they are used by the scheduled script to create realistic chat records without manually running through the full end-user and customer-support-agent workflow.
+
+These endpoints were created to avoid using real authentication flows during automated chat generation. The script can produce the chat states needed for analytics and reporting without logging in real users, completing TARA authentication, or relying on live customer-support-agent interactions.
+
+`POST /backoffice/cron-tasks/chat-generation/message` inserts messages or events into the generated chat. The script uses it to simulate items such as an end-user message, forwarding to backoffice, CSA takeover, an authentication request, and successful end-user authentication. The request includes the `chatJwt` cookie, message data, domain, holiday data, and `silent=true` to avoid unnecessary bot responses.
+
+`POST /backoffice/cron-tasks/chat-generation/insert-chat` inserts or enriches chat base data required by reporting, analytics, and historical chat views. The script uses it to persist CSA, end-user, and technical metadata after the chat has been created through the public init flow.
+
+Both endpoints are protected with the `x-ruuter-nonce` header.
