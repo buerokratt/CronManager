@@ -1,0 +1,4 @@
+import_municipalities_data_now:
+  trigger: off
+  type: exec
+  command: "./scripts/import_municipalities_data.sh"

@@ -1,0 +1,4 @@
+RELEASE=python
+VERSION=1
+BUILD=2
+FIX=0

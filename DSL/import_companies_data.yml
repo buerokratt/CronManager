@@ -1,0 +1,4 @@
+import_companies_data_now:
+  trigger: off
+  type: exec
+  command: "./scripts/import_companies_data.sh"

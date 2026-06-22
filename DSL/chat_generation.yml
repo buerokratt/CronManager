@@ -1,0 +1,4 @@
+chat_generation:
+  trigger: "0 0/30 * * * ?"
+  type: exec
+  command: "../app/scripts/chat_generation.sh false"
