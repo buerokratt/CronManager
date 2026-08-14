@@ -1,10 +1,10 @@
-# !/bin/bash
+#!/bin/bash
 
 message="$(head -1 $1)"
 
 message_pattern="^(feat|fix|chore|docs|refactor|style|test)\([0-9]+\):\ .+$"
 
-if ! [[ $message =~ $message_pattern ]];
+if ![[ $message =~ $message_pattern ]];
 then
   echo "---"
   echo "Violation of commit message format!"
