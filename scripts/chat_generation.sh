@@ -99,7 +99,7 @@ while IFS='=' read -r key value; do
   [[ "$key" =~ ^[[:space:]]*\[ ]] && continue
 
   case "$key" in
-    CHATBOT_RUUTER_PUBLIC|CHATBOT_RUUTER_PRIVATE|CHATBOT_TRAINING_RESQL|TRAINING_RESQL|DOMAIN)
+    CHATBOT_RUUTER_PUBLIC|CHATBOT_RUUTER_PRIVATE|CHATBOT_TRAINING_RESQL|TRAINING_RESQL|DOMAIN|CHAT_GENERATION|CHAT_GENERATION_CSA_ID)
       printf -v "$key" '%s' "$value"
       ;;
   esac
