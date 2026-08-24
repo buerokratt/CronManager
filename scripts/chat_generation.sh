@@ -73,6 +73,23 @@ response_value() {
   jq -er "$jq_filter" < "$body_file"
 }
 
+pick_feedback_rating() {
+  local is_five_rating_scale="$1"
+  local ratings
+
+  if [[ "$is_five_rating_scale" == "true" ]]; then
+    ratings=(1 2 3 4 5)
+  else
+    ratings=(0 1 2 3 4 5 6 7 8 9 10)
+  fi
+
+  echo "${ratings[$RANDOM % ${#ratings[@]}]}"
+}
+
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+  return 0
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 CONSTANTS_FILE="${SCRIPT_DIR}/../constants.ini"
@@ -82,7 +99,7 @@ while IFS='=' read -r key value; do
   [[ "$key" =~ ^[[:space:]]*\[ ]] && continue
 
   case "$key" in
-    CHATBOT_RUUTER_PUBLIC|CHATBOT_RUUTER_PRIVATE|CHATBOT_TRAINING_RESQL|TRAINING_RESQL|DOMAIN)
+    CHATBOT_RUUTER_PUBLIC|CHATBOT_RUUTER_PRIVATE|CHATBOT_TRAINING_RESQL|TRAINING_RESQL|DOMAIN|CHAT_GENERATION|CHAT_GENERATION_CSA_ID)
       printf -v "$key" '%s' "$value"
       ;;
   esac
@@ -273,9 +290,14 @@ if [[ "$isAuthenticated" == "true" ]]; then
   request POST "$PRIVATE_URL/cron-tasks/chat-generation/insert-chat" "$payload" "chatJwt=$chat_jwt" "$headers" "$body"
   
   
-  ratings=(1 2 3 4 5 6 7 8 9 10)
-  rating="${ratings[$RANDOM % ${#ratings[@]}]}"
-  echo "$(currentTimestamp) - End-user selects feedback rating $rating"
+  echo "$(currentTimestamp) - Fetching feedback scale configuration"
+  feedback_config_payload=$(jq -n --arg domain "$DOMAIN" '{domain: $domain}')
+  request POST "$PRIVATE_URL/cron-tasks/chat-generation/feedback-config" "$feedback_config_payload" "chatJwt=$chat_jwt" "$headers" "$body"
+  is_five_rating_scale=$(response_value "$body" '.response.isFiveRatingScale // .isFiveRatingScale')
+  [[ -n "$is_five_rating_scale" ]] || fail "Failed to determine feedback scale"
+
+  rating="$(pick_feedback_rating "$is_five_rating_scale")"
+  echo "$(currentTimestamp) - End-user selects feedback rating $rating (scale: $([[ "$is_five_rating_scale" == "true" ]] && echo "5-point" || echo "10-point"))"
   rating_payload=$(jq -n \
     --arg chatId "$chat_id" \
     --argjson rating "$rating" \

@@ -146,6 +146,7 @@ to executed scripts
 ### `constants.ini`
 | Key | Example value | Required | Description |
 | --- | --- | --- | --- |
+| `CHAT_GENERATION` | `false` | No | Enables chat generation when set to `True` or `true`; any other value disables it. Defaults to `True`. |
 | `CHAT_GENERATION_CSA_ID` | `EE30303039914` | No | By default it has fallback to `EE30303039914` (chat_generation.sh) |
 
 
