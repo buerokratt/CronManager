@@ -1,0 +1,9 @@
+{
+  "cron": {
+    "dockerfile": "ci/central/cron.Dockerfile",
+    "context": ".",
+    "contexts": {
+      "llm": "https://github.com/buerokratt/LLM-Module.git#047fb723673200f0b2fac4aaca8b37b1221f83e8"
+    }
+  }
+}

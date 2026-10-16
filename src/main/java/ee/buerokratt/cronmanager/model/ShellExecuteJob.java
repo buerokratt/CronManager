@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 import static ee.buerokratt.cronmanager.utils.LoggingUtils.mapDeepToString;
 import static org.apache.logging.log4j.message.ParameterizedMessage.deepToString;
 
+@org.quartz.DisallowConcurrentExecution
 @Slf4j
 @Getter
 @Setter
@@ -41,24 +42,37 @@ public class ShellExecuteJob extends YamlJob {
             throw new JobExecutionException("Stopped execution: current time outside defined limits: %d [ %d -> %d ]".formatted(System.currentTimeMillis(), getStartDate(),  getEndDate()));
         }
 
-        JobDataMap jdm = context.getJobDetail().getJobDataMap();
+        JobDataMap jdm = context.getMergedJobDataMap();
         command = jdm.getString("command");
 
         try {
-            String params = jdm.containsKey("params") ? (String) jdm.get("params") : "empty";
-            List<String> result = execProcess(command, params);
-            log.info(result.stream().collect(Collectors.joining("\n")));
+            ProcessBuilder builder = new ProcessBuilder(command.trim().split("\\s+"));
+            builder.directory(new File("/app/"));
+            Object overrides = jdm.get("requestEnvironment");
+            if (overrides instanceof java.util.Map<?, ?> values) {
+                for (var entry : values.entrySet()) {
+                    String key = (String) entry.getKey();
+                    String value = (String) entry.getValue();
+                    if (!key.matches("[A-Za-z_][A-Za-z0-9_]*") || value.indexOf('\0') >= 0 || value.length() > 65536) throw new IOException("Invalid job environment");
+                    builder.environment().put(key, value);
+                }
+            }
+            builder.redirectErrorStream(true);
+            builder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+            Process process = builder.start();
+            if (!process.waitFor(90, java.util.concurrent.TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                throw new IOException("Job timeout; inspect retained task journal");
+            }
+            if (process.exitValue() != 0) throw new IOException("Job process returned nonzero status");
+            context.setResult("completed");
+            log.info("Job completed: {}", context.getJobDetail().getKey());
         } catch (IOException e) {
-            throw new JobExecutionException("Problem running command: ", e);
+            throw new JobExecutionException("Job process failed", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new JobExecutionException("Job interrupted", e);
         }
-    }
-
-    private List<String> execProcess(String command, String params) throws IOException {
-        log.debug("Running "+command + "("+params+")");
-        File dir = new File("/app/");
-        Process process = Runtime.getRuntime().exec(command, params.split(","), dir);
-        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        return reader.lines().collect(Collectors.toList());
     }
 
     @Override

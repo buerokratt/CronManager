@@ -121,25 +121,25 @@ public class CronService {
     public String executeJob(String groupName, String jobName,
                              Map<String, String[]> params) throws SchedulerException {
         GroupMatcher<JobKey> matcher = groupName == null || groupName.isEmpty() ? GroupMatcher.anyGroup() : GroupMatcher.groupEquals(groupName);
-        log.debug("Params: "+deepToString(params));
+
         JobKey job = scheduler.getJobKeys(matcher).stream()
                 .filter(key -> key.getName().equals(jobName)).findFirst().orElseGet(null);
         JobDetail jobDetail = scheduler.getJobDetail(job);
         JobDataMap jdm = jobDetail.getJobDataMap();
 
+        JobDataMap invocation = new JobDataMap();
         if (jobDetail.getJobClass() == ShellExecuteJob.class && jdm.containsKey("allowedEnvs")) {
-            List<String> allowedParams = Arrays.asList(((String)jobDetail.getJobDataMap().get("allowedEnvs")).split(","));
-            String env = params.entrySet().stream()
-                    .filter(entry -> allowedParams.contains(entry.getKey()))
-                    .map(entry-> entry.getKey() + "=" + entry.getValue()[0])
-                    .collect(Collectors.joining(","));
-            jobDetail.getJobDataMap().put("params", env);
-            log.debug("Env: "+deepToString(env) + " stored: "+ jobDetail.getJobDataMap().get("params"));
-            scheduler.addJob(jobDetail, true);
+            List<String> allowedParams = Arrays.asList(jdm.getString("allowedEnvs").split(","));
+            Map<String, String> environment = new HashMap<>();
+            for (var entry : params.entrySet()) {
+                if (allowedParams.contains(entry.getKey())) {
+                    if (entry.getValue().length != 1) throw new IllegalArgumentException("Job parameters must be scalar");
+                    environment.put(entry.getKey(), entry.getValue()[0]);
+                }
+            }
+            invocation.put("requestEnvironment", environment);
         }
-
-
-        scheduler.triggerJob(job);
+        scheduler.triggerJob(job, invocation);
 
         return getRunningJobs(groupName);
     }
