@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jdk AS build
+FROM eclipse-temurin:17.0.21.1_2-jdk AS build
 WORKDIR /workspace/app
 
 # Install minimal dependencies for uv
@@ -28,7 +28,7 @@ RUN chmod 754 ./gradlew
 RUN ./gradlew -Pprod clean bootJar
 RUN mkdir -p build/libs && (cd build/libs; jar -xf *.jar)
 
-FROM eclipse-temurin:17-jdk
+FROM eclipse-temurin:17.0.21.1_2-jdk
 VOLUME /build/tmp
 
 # Install minimal dependencies for uv and jq
